@@ -1,0 +1,3 @@
+[submodule "src/test-runner"]
+	path = src/test-runner
+	url = git@github.com:danmoinescu/c-testing-framework
