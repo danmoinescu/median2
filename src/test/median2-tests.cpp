@@ -100,7 +100,9 @@ int repeated_tests_random_increasing_sizes()
             {
                 auto v1 = random_sorted_vector(size1);
                 auto v2 = random_sorted_vector(size2);
-
+#ifdef DEBUG
+                std::cout << "Running with " << v1 << " and " << v2 << '\n';
+#endif
                 if(!basic_test(v1, v2)) { return TEST_FAILED; }
             }
         }
