@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include <vector>
 
 typedef std::vector<int>::const_iterator IntIterator;
@@ -9,13 +10,13 @@ struct Interval
     const IntIterator start;
     const IntIterator end;
 
+    Interval(IntIterator s, IntIterator e): start(s), end(e)
+    {}
+
+    Interval(const Interval &other): Interval(other.start, other.end)
+    {}
+
     int size() const { return end - start; }
-    Interval& operator=(const Interval &other)
-    {
-        *((IntIterator*)&start) = other.start;
-        *((IntIterator*)&end) = other.end;
-        return *this;
-    }
 };
 
 
@@ -23,7 +24,7 @@ class Solution {
     private:
         int foundSoFar = 0;
         int lastInPrevInterval = 0;
-        Interval lastInterval;
+        std::unique_ptr<Interval> pLastInterval;
 
     public:
         double findMedianSortedArrays(
