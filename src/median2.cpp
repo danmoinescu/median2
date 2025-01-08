@@ -39,8 +39,8 @@ double Solution::findMedianSortedArrays(
     else if(nums2.empty()) { return findMedianSortedArray(nums1); }
 
     foundSoFar = 0;
-    const std::vector<Interval> intervals = buildSortedIntervals(nums1, nums2);
-    return findMedianFromIntervals(intervals, nums1.size() + nums2.size());
+    findSortedIntervals(nums1, nums2);
+    return findMedian(nums1.size() + nums2.size());
 }
 
 
@@ -63,7 +63,7 @@ int Solution::requiredSortedCount(int totalSize)
 }
 
 
-std::vector<Interval> Solution::buildSortedIntervals(
+void Solution::findSortedIntervals(
         const std::vector<int> &nums1,
         const std::vector<int> &nums2)
 {
@@ -76,12 +76,10 @@ std::vector<Interval> Solution::buildSortedIntervals(
         << ", need " << requiredCount << " combined elements\n";
 #endif // #ifdef DEBUG
 
-    /* Build a list of intervals from the 2 vectors, that if put
-       together would create a sorted vector.
-    */
-    std::vector<Interval> intervals;
-    intervals.reserve(totalSize); // but beware of `ulimit -s`!
-    /* Example:
+    /* Successively determine contiguous intervals from either of the
+       2 vectors, that if put together would create a sorted vector.
+
+       Example:
        nums1 = { 10, 20, 30, 40 }
        nums2 = { 21, 22, 23, 31, 32, 33 }
        Then:
@@ -100,26 +98,20 @@ std::vector<Interval> Solution::buildSortedIntervals(
                 hostStart, hostEnd, guestStart, guestEnd);
         for(const Interval &i: newIntervals)
         {
-            intervals.push_back(i);
-            int currentSize = i.end - i.start;
-            foundSoFar += currentSize;
+            foundSoFar += i.size();
 #ifdef DEBUG
             std::cout << "Found " << foundSoFar << " elements so far, "
                 << requiredCount << " needed\n";
 #endif // #ifdef DEBUG
             if(foundSoFar >= requiredCount)
             {
+                lastInterval = i;
                 done = true;
                 break;
             }
+            lastInPrevInterval = *(i.end-1);
         }
     }
-#ifdef DEBUG
-    std::cout << "All intervals: ";
-    for(const Interval &i: intervals) { std::cout << i << " "; }
-    std::cout << '\n';
-#endif // #ifdef DEBUG
-    return intervals;
 }
 
 
@@ -243,23 +235,20 @@ IntIterator Solution::findFirstMatchingBinarySearch(
 }
 
 
-double Solution::findMedianFromIntervals(
-        const std::vector<Interval> &intervals,
-        int totalSize)
+double Solution::findMedian(int totalSize)
 {
-    auto pLatestInterval = intervals.crbegin();
-    int foundBeforeLast = foundSoFar - pLatestInterval->size();
-    int neededFromLatestInterval =
-        requiredSortedCount(totalSize) - foundBeforeLast;
+    int foundBeforeLast = foundSoFar - lastInterval.size();
+    int neededFromLastInterval =
+        requiredSortedCount(totalSize) - foundBeforeLast; // can be 1 or 2
     double median;
 
     if(isOdd(totalSize))
     {
         // The median is a single number which can be found in the last interval
-        median = *(pLatestInterval->start + neededFromLatestInterval -1);
+        median = *(lastInterval.start + neededFromLastInterval -1);
 #ifdef DEBUG
         std::cout << "median = "
-            << *(pLatestInterval->start + neededFromLatestInterval -1)
+            << *(lastInterval.start + neededFromLastInterval -1)
             << '\n';
 #endif // #ifdef DEBUG
     }
@@ -270,33 +259,31 @@ double Solution::findMedianFromIntervals(
            last interval and one in next-to-last.
         */
 #ifdef DEBUG
-        std::cout << "neededFromLatestInterval: " << neededFromLatestInterval << '\n';
-        std::cout << "last interval: " << *pLatestInterval << '\n';
+        std::cout << "neededFromLastInterval: " << neededFromLastInterval << '\n';
+        std::cout << "last interval: " << lastInterval << '\n';
 #endif
-        if(neededFromLatestInterval == 1)
+        if(neededFromLastInterval == 1)
         {
-            auto pPrevInterval = pLatestInterval + 1;
-            median = *(pLatestInterval->start) + *(pPrevInterval->end - 1);
-            median /= 2;
+            median = (*(lastInterval.start) + lastInPrevInterval) / 2.0;
 #ifdef DEBUG
             std::cout << "Found before last: " << foundBeforeLast <<
                 ", need 1 more from last\n";
             std::cout << "median = ("
-                << *(pLatestInterval->start) << " + "
-                << *(pPrevInterval->end - 1)
+                << *(lastInterval.start) << " + "
+                << lastInPrevInterval
                 << ") / 2\n";
 #endif // #ifdef DEBUG
         }
-        else // neededFromLatestInterval >= 2
+        else // neededFromLastInterval == 2
         {
-            median = *(pLatestInterval->start + neededFromLatestInterval -2);
-            median += *(pLatestInterval->start + neededFromLatestInterval -1);
+            median = *(lastInterval.start + neededFromLastInterval -2);
+            median += *(lastInterval.start + neededFromLastInterval -1);
             median /= 2;
 #ifdef DEBUG
             std::cout << "median = ("
-                << *(pLatestInterval->start + neededFromLatestInterval -2)
+                << *(lastInterval.start + neededFromLastInterval -2)
                 << " + "
-                << *(pLatestInterval->start + neededFromLatestInterval -1)
+                << *(lastInterval.start + neededFromLastInterval -1)
                 << ") / 2\n";
 #endif // #ifdef DEBUG
         }
@@ -307,8 +294,7 @@ double Solution::findMedianFromIntervals(
 
 double Solution::findMedianSortedArray(const std::vector<int> &nums)
 {
-    std::vector<Interval> numsInterval;
-    numsInterval.push_back({.start=nums.cbegin(), .end=nums.cend()});
+    lastInterval = {.start=nums.cbegin(), .end=nums.cend()};
     foundSoFar = nums.size();
-    return findMedianFromIntervals(numsInterval, nums.size());
+    return findMedian(nums.size());
 }

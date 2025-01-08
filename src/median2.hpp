@@ -10,12 +10,20 @@ struct Interval
     const IntIterator end;
 
     int size() const { return end - start; }
+    Interval& operator=(const Interval &other)
+    {
+        *((IntIterator*)&start) = other.start;
+        *((IntIterator*)&end) = other.end;
+        return *this;
+    }
 };
 
 
 class Solution {
     private:
         int foundSoFar = 0;
+        int lastInPrevInterval = 0;
+        Interval lastInterval;
 
     public:
         double findMedianSortedArrays(
@@ -40,7 +48,7 @@ class Solution {
                 IntIterator startIterator,
                 IntIterator endIterator);
 
-        std::vector<Interval> buildSortedIntervals(
+        void findSortedIntervals(
                 const std::vector<int> &nums1,
                 const std::vector<int> &nums2);
 
@@ -50,9 +58,7 @@ class Solution {
                 IntIterator &guestStart,
                 IntIterator guestEnd);
 
-        double findMedianFromIntervals(
-                const std::vector<Interval> &intervals,
-                int totalSize);
+        double findMedian(int totalSize);
 
         int requiredSortedCount(int totalSize);
 
