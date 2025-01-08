@@ -34,17 +34,31 @@ double Solution::findMedianSortedArrays(
         const std::vector<int> &nums1,
         const std::vector<int> &nums2)
 {
+    totalSize = nums1.size() + nums2.size();
+    requiredCount = requiredSortedCount();
+    foundSoFar = 0;
+    medianComponents = isOdd(totalSize)? 1 : 2;
+    lastIntervals.reserve(2);
+
     //edge cases (one vector is empty)
     if(nums1.empty()) { return findMedianSortedArray(nums2); }
     else if(nums2.empty()) { return findMedianSortedArray(nums1); }
 
-    foundSoFar = 0;
+#ifdef DEBUG
+    std::cout << "Combined size is " << totalSize
+        << ", need " << requiredCount << " combined elements\n";
+#endif // #ifdef DEBUG
+    hostStart = nums1.begin();
+    hostEnd = nums1.end();
+    guestStart = nums2.begin();
+    guestEnd = nums2.end();
+
     findSortedIntervals(nums1, nums2);
-    return findMedian(nums1.size() + nums2.size());
+    return findMedian();
 }
 
 
-int Solution::requiredSortedCount(int totalSize)
+inline int Solution::requiredSortedCount()
 {
     /* The median of a sorted container A of size S is:
        * A[S/2], if S is odd.
@@ -67,14 +81,6 @@ void Solution::findSortedIntervals(
         const std::vector<int> &nums1,
         const std::vector<int> &nums2)
 {
-    int totalSize = nums1.size() + nums2.size();
-
-    const int requiredCount = requiredSortedCount(totalSize);
-
-#ifdef DEBUG
-    std::cout << "Combined size is " << totalSize
-        << ", need " << requiredCount << " combined elements\n";
-#endif // #ifdef DEBUG
 
     /* Successively determine contiguous intervals from either of the
        2 vectors, that if put together would create a sorted vector.
@@ -87,22 +93,16 @@ void Solution::findSortedIntervals(
        - *pastIntervalEnd = 30
        - *intervalEnd = 31
     */
-    IntIterator hostStart = nums1.begin();
-    IntIterator hostEnd = nums1.end();
-    IntIterator guestStart = nums2.begin();
-    IntIterator guestEnd = nums2.end();
     bool done = false;
     while(! done)
     {
-        std::vector<Interval> newIntervals = buildSortedIntervals(
-                hostStart, hostEnd, guestStart, guestEnd);
-        for(const Interval &i: newIntervals)
+        buildSortedIntervals();
+        // first reset foundSoFar to exclude the latest intevals
+        for(const Interval &i: lastIntervals) { foundSoFar -= i.size(); }
+        // now let's find the last interval that's actually needed
+        for(const Interval &i: lastIntervals)
         {
             foundSoFar += i.size();
-#ifdef DEBUG
-            std::cout << "Found " << foundSoFar << " elements so far, "
-                << requiredCount << " needed\n";
-#endif // #ifdef DEBUG
             if(foundSoFar >= requiredCount)
             {
                 pLastInterval = std::make_unique<Interval>(i);
@@ -111,29 +111,27 @@ void Solution::findSortedIntervals(
             }
             lastInPrevInterval = *(i.end-1);
         }
+#ifdef DEBUG
+        std::cout << "Found " << foundSoFar << " elements so far, "
+            << requiredCount << " needed\n";
+        std::cout << "lastInPrevInterval= " << lastInPrevInterval << '\n';
+#endif // #ifdef DEBUG
     }
 }
 
 
-std::vector<Interval> Solution::buildSortedIntervals(
-        IntIterator &hostStart,
-        IntIterator hostEnd,
-        IntIterator &guestStart,
-        IntIterator guestEnd)
+void Solution::buildSortedIntervals()
 {
 #ifdef DEBUG
     std::cout << '\n';
     printRange(hostStart, hostEnd, "Host"); std::cout << '\n';
     printRange(guestStart, guestEnd, "Guest"); std::cout << '\n';
 #endif // #ifdef DEBUG
-    std::vector<Interval> retval;
-    retval.reserve(2);
 
     if(guestStart == guestEnd)
     {
-        retval.emplace_back(hostStart, hostEnd);
-        hostStart = hostEnd;
-        return retval;
+        handleInterval(hostStart, hostEnd);
+        return;
     }
     // the guest interval will be "inserted" before hostSplicePoint
     auto hostSplicePoint = findFirstGreaterThan(
@@ -146,14 +144,12 @@ std::vector<Interval> Solution::buildSortedIntervals(
 #endif // #ifdef DEBUG
     if(hostSplicePoint != hostStart)
     {
-        retval.emplace_back(hostStart, hostSplicePoint);
-        hostStart = hostSplicePoint;
+        handleInterval(hostStart, hostSplicePoint);
     }
     if(hostSplicePoint == hostEnd)
     {
         //the entire guest belongs at the end of host
-        retval.emplace_back(guestStart, guestEnd);
-        guestStart = guestEnd;
+        handleInterval(guestStart, guestEnd);
 #ifdef DEBUG
         std::cout << "Guest interval: all\n";
 #endif // #ifdef DEBUG
@@ -167,8 +163,7 @@ std::vector<Interval> Solution::buildSortedIntervals(
         IntIterator guestIntervalEnd = (guestStart + 1 != guestEnd)?
             findFirstGreaterThan(*hostSplicePoint, guestStart+1, guestEnd) :
             guestEnd;
-        retval.emplace_back(guestStart, guestIntervalEnd);
-        guestStart = guestIntervalEnd;
+        handleInterval(guestStart, guestIntervalEnd);
 #ifdef DEBUG
         std::cout << "guestIntervalEnd = "
             << (guestIntervalEnd == guestEnd?
@@ -178,10 +173,25 @@ std::vector<Interval> Solution::buildSortedIntervals(
     }
 #ifdef DEBUG
     std::cout << "Produced: ";
-    for(const Interval &i: retval) { std::cout << i << " "; }
+    for(const Interval &i: lastIntervals) { std::cout << i << " "; }
     std::cout << '\n';
 #endif // #ifdef DEBUG
-    return retval;
+}
+
+
+void Solution::handleInterval(
+        IntIterator &start,
+        const IntIterator &end)
+{
+    foundSoFar += end - start;
+    if(foundSoFar >= requiredCount - medianComponents)
+    {
+        /* The start-end interval might contain a number that is needed
+           for computing the median, so save it
+        */
+        lastIntervals.emplace_back(start, end);
+    }
+    start = end;
 }
 
 
@@ -235,11 +245,11 @@ IntIterator Solution::findFirstMatchingBinarySearch(
 }
 
 
-double Solution::findMedian(int totalSize)
+double Solution::findMedian()
 {
     int foundBeforeLast = foundSoFar - pLastInterval->size();
     int neededFromLastInterval =
-        requiredSortedCount(totalSize) - foundBeforeLast; // can be 1 or 2
+        requiredCount - foundBeforeLast; // can be 1 or 2
     double median;
 
     if(isOdd(totalSize))
@@ -296,6 +306,6 @@ double Solution::findMedianSortedArray(const std::vector<int> &nums)
 {
     pLastInterval = std::make_unique<Interval>(
             nums.cbegin(), nums.cend());
-    foundSoFar = nums.size();
-    return findMedian(nums.size());
+    foundSoFar = totalSize;
+    return findMedian();
 }
