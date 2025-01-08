@@ -24,7 +24,15 @@ class Solution {
     private:
         int foundSoFar = 0;
         int lastInPrevInterval = 0;
+        std::vector<Interval> lastIntervals;
         std::unique_ptr<Interval> pLastInterval;
+        int totalSize; // size1 + size2
+        int requiredCount; // how many sorted numbers must be available before we can compute the median
+        int medianComponents; // how many numbers are needed to compute the median? (1 or 2)
+        IntIterator hostStart;
+        IntIterator hostEnd;
+        IntIterator guestStart;
+        IntIterator guestEnd;
 
     public:
         double findMedianSortedArrays(
@@ -53,18 +61,18 @@ class Solution {
                 const std::vector<int> &nums1,
                 const std::vector<int> &nums2);
 
-        std::vector<Interval> buildSortedIntervals(
-                IntIterator &hostStart,
-                IntIterator hostEnd,
-                IntIterator &guestStart,
-                IntIterator guestEnd);
+        void buildSortedIntervals();
 
-        double findMedian(int totalSize);
+        double findMedian();
 
-        int requiredSortedCount(int totalSize);
+        int requiredSortedCount();
 
         double findMedianSortedArray(
                 const std::vector<int> &nums);
+
+        void handleInterval(
+                IntIterator &start,
+                const IntIterator &end);
 };
 
 #ifdef DEBUG
